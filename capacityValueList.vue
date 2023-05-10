@@ -220,9 +220,23 @@ export default {
             //清空selection
             this.selection = [];
             this.getTableData();
-            this.methods1();
+            console.log(this.tableData[0])
+            console.log(this.tableData[0].children[0])
+            let columnName = 'roleAndImportanceCodeShow';
+            for (let i = 0; i < this.tableData.length; i++) {
+              let row = this.tableData[i];
+              for (let j = 0; j < row.children.length; j++) {
+                let roleAndImportance = row.children[j][columnName];        
+                if(roleAndImportance!==null){
+                  row.children[j][columnName]=roleAndImportance.replace(/\n/g,"<br>");
+                  console.log(row.children[j][columnName])
+                }
+            }
+            this.tableData = JSON.parse(JSON.stringify(this.tableData));
           }
+          this.tableData = JSON.parse(JSON.stringify(this.tableData));
         },
+      }
       ],
       tableHandles: [
         {
@@ -328,12 +342,12 @@ export default {
         {key: "info", label: "详细文字描述", prop: "info", sort: "custom"},
         {key: "weight", label: "权重", prop: "weight", sort: "custom"},
         {key: "weightInfo", label: "权重详细文字描述", prop: "weightInfo", sort: "custom"},
+        {key: "roleAndImportanceCodeShow", label: "角色职级：重要性", prop: "roleAndImportanceCodeShow", sort: "custom"},
         {key: "learnTime", label: "学习时间（小时）", prop: "learnTime", sort: "custom"},
         {key: "practiceTime", label: "实践时间（小时）", prop: "practiceTime", sort: "custom"},
         {key: "learnCycle", label: "学习周期（天）", prop: "learnCycle", sort: "custom"},
         {key: "practiceCycle", label: "实践周期（天）", prop: "practiceCycle", sort: "custom"},
         {key: "cost", label: "费用", prop: "cost", sort: "custom"},
-        {key: "roleAndImportanceCodeShow", label: "角色职级：重要性", prop: "roleAndImportanceCodeShow", sort: "custom"},
       ],
       selection: [],
       fatherSelection: [],
@@ -379,15 +393,6 @@ export default {
   },
 
   methods: {
-    methods1(){
-    const myTable = this.$refs.myTable;
-    const data = myTable.tableData;
-    const columnData = data.map(item => item.roleAndImportanceCodeShow);
-    console.log(columnData)
-    columnData.forEach(item => {
-      console.log(item);
-    });
-    },
     //新增加一栏
     addItem: function () {
       this.form.dynamicItem.push({
@@ -719,6 +724,9 @@ export default {
       // 父节点样式调整
       if (row && column.property === 'capacityShow') {
         cellStyle = 'color:blue;white-space: nowrap;font-size: 14px;  font-weight: 600;'
+      }
+      if (row && column.property === 'roleAndImportanceCodeShow') {
+        cellStyle = 'white-space: pre-wrap !important ;font-size: 14px;  font-weight: 600;'
       }
       if (row && column.property === 'info') {
         return {
