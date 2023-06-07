@@ -1,267 +1,251 @@
 <template>
   <div>
-    <Query
-      size="mini"
-      labelWidth="80px"
-      :itemWidth="7"
-      :searchData="searchData"
-      :searchForm="searchForm"
-      :searchHandle="searchHandle"
-      :list="list"
-    ></Query>
-    <el-main class="table-main">
-      <r-table
-        ref="myTable"
-        :tableData="tableData"
-        :columns="columns"
-        :uniqueID="'id'"
-        :current="searchData.pageNum"
-        :pageSize="searchData.pageSize"
-        :total="total"
-        :multiSelect="true"
-        :isHandle="true"
-        :hasChildren="true"
-        :tableHandles="tableHandles"
-        :cell-style="setCellStyle"
-        :row-class-name="currentRowClassName"
-        @on-select-all="onSelectAll"
-        @on-cell-dblclick="cellChange"
-        @on-select="select"
-        @on-change="pageChange"
-        @on-page-size-change="pageSizeChange"
-        @on-sort-change="sortChange"
-        @on-row-click="rowClick"
-      ></r-table>
-    </el-main>
+    <div style="margin-bottom: 20px">
+      <Query
+        size="mini"
+        labelWidth="100px"
+        :itemWidth="7"
+        :searchData="searchData"
+        :searchForm="searchForm"
+        :searchHandle="searchHandle"
+        :list="list"
+      ></Query>
+    </div>
+    <table>
+      <!-- Table structure -->
+      <thead>
+        <tr>
+          <th>日期</th>
+          <th>版本/工单</th>
+          <th>工作角色</th>
+          <th>工作量（小时）</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="(row, index) in tableData" :key="index">
+          <td style="width: 300px">
+            <el-date-picker
+              v-model="row.scheduleDate"
+              type="date"
+              format="yyyy-MM-dd"
+              v-if="row.isEditing"
+              @change="handleDateChange(row)"
+            ></el-date-picker>
+            <span v-else>{{ row.scheduleDate }}</span>
+          </td>
+
+          <td style="width: 300px">
+            <el-select
+              v-model="row.versionOrissueShow"
+              clearable
+              filterable
+              default-first-option
+              v-if="row.isEditing"
+            >
+              <el-option-group
+                v-for="group in options"
+                :key="group.text"
+                :label="group.text"
+                placement="top"
+              >
+                <el-option
+                  v-for="item in group.options"
+                  :key="item.value"
+                  :label="item.text"
+                  :value="{ value: item.value, type: group.text }"
+                >
+                </el-option>
+              </el-option-group>
+            </el-select>
+            <span v-else>{{ row.versionOrissueShow }}</span>
+          </td>
+          <td style="width: 300px">
+            <el-input
+              v-if="row.isEditing"
+              v-model="role"
+              placeholder="请输入工作角色"
+              :readonly="true"
+            ></el-input>
+            <span v-else>{{ role }}</span>
+          </td>
+          <td style="width: 300px">
+            <el-input
+              v-if="row.isEditing"
+              v-model="row.workload"
+              placeholder="请输入工作量（小时）"
+            />
+            <span v-else>{{ row.workload }}</span>
+          </td>
+          <td>
+            <button @click="handleEdit(row)">编辑</button>
+            <button @click="handleEditSave(row)">保存</button>
+            <button @click="handleDelete(row)">删除</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
   </div>
 </template>
-
 <script>
 export default {
-  name: "department",
+  name: "Department",
   data() {
     return {
-      searchForm: [],
-      searchHandle: [],
-      tableHandles: [
+      // tableData: [{isEditing:false},{isEditing:false}],
+      tableData: [],
+      options: [],
+      role: "",
+      searchForm: [
+        {
+          type: "Select",
+          label: "经办人",
+          prop: "member",
+          placeholder: "请选择",
+          clearable: true,
+          change: (value) => {
+            this.searchData.memberId = value;
+          },
+        },
+      ],
+      searchHandle: [
+        {
+          label: "查询",
+          type: "primary",
+          handle: () => {
+            if (this.searchData.memberId.length === 0) {
+              this.searchData.memberId = JSON.parse(
+                localStorage.getItem("userInfo")
+              ).memberId;
+            }
+            this.getTableData(this.searchData.memberId);
+          },
+        },
         {
           label: "新增",
           type: "primary",
-          handle: () => {
-            this.$router.push({
-              path: "/department/add",
-              query: {
-                state: "add",
-              },
-            });
-          },
-        },
-        {
-          label: "编辑",
-          type: "primary",
-          handle: () => {
-            if (this.selection.length === 0) {
-              this.$message.warning("请至少选中一项记录");
-              return;
-            }
-            if (this.selection.length !== 1) {
-              this.$message.warning("只能选中一项记录进行编辑");
-              return;
-            }
-            this.$router.push({
-              path: "/department/add",
-              query: {
-                state: "edit",
-                data: this.selection[0],
-              },
-            });
-          },
-        },
-        {
-          label: "禁用",
-          type: "primary",
-          handle: () => {
-            let that = this;
-            if (that.selection.length === 0) {
-              that.$message.warning("请至少选中一项记录");
-              return;
-            }
-            that.$confirm("是否确认禁用", "消息", {
-              callback(action) {
-                if (action === "confirm") {
-                  that.$api.department
-                    .batchDelete({
-                      ids: that.selection.map((id) => id).join(","),
-                    })
-                    .then((res) => {
-                      that.$message.success(res.info);
-                      that.getTableData();
-                    });
-                }
-              },
-            });
-          },
+          handle: () => {},
         },
       ],
-      tableData: [],
-      total: 0,
-      columns: [
-        {
-          key: "name",
-          label: "团队名称",
-          prop: "name",
-          sort: true,
-          render: (h, { row }) => {
-            // 判断当前行的可编辑状态
-            if (row.editable) {
-              return h("el-input", {
-                props: {
-                  value: row.teamName,
-                },
-                on: {
-                  input: (value) => {
-                    // 双向绑定
-                    row.teamName = value;
-                  },
-                },
-              });
-            } else {
-              return h("span", row.teamName);
-            }
-          },
-        },
-        {
-          key: "dingtalkDeptId",
-          label: "钉钉团队编号",
-          prop: "dingtalkDeptId",
-          sort: true,
-          render: (h, { row }) => {
-            // 判断当前行的可编辑状态
-            if (row.editable) {
-              return h("el-input", {
-                props: {
-                  value: row.dingTalkTeamNumber,
-                },
-                on: {
-                  input: (value) => {
-                    // 双向绑定
-                    row.dingTalkTeamNumber = value;
-                  },
-                },
-              });
-            } else {
-              return h("span", row.dingTalkTeamNumber);
-            }
-          },
-        },
-        {
-          label: "操作",
-          width: 150,
-          render: (h, { row }) => {
-            // 根据当前行的编辑状态显示不同的按钮
-            if (row.editable) {
-              return h("div", [
-                h(
-                  "el-button",
-                  {
-                    props: {
-                      type: "primary",
-                      size: "mini",
-                    },
-                    on: {
-                      click: () => {
-                        // 点击保存按钮后，将当前行的编辑状态设置为 false，并将修改后的数据提交到后台
-                        row.editable = false;
-                        console.log("提交数据：", row);
-                        // TODO: 将修改后的数据提交到后台
-                      },
-                    },
-                  },
-                  "保存"
-                ),
-                h(
-                  "el-button",
-                  {
-                    props: {
-                      type: "text",
-                      size: "mini",
-                    },
-                    on: {
-                      click: () => {
-                        // 点击取消按钮后，将当前行的编辑状态设置为 false，并取消修改
-                        row.editable = false;
-                        console.log("取消修改：", row);
-                        // TODO: 取消修改
-                      },
-                    },
-                  },
-                  "取消"
-                ),
-              ]);
-            } else {
-              return h("div", [
-                h(
-                  "el-button",
-                  {
-                    props: {
-                      type: "primary",
-                      size: "mini",
-                    },
-                    on: {
-                      click: () => {
-                        // 点击编辑按钮后，将当前行的编辑状态设置为 true
-                        row.editable = true;
-                      },
-                    },
-                  },
-                  "编辑"
-                ),
-              ]);
-            }
-          },
-        },
-      ],
-      selection: [],
       searchData: {
-        //暂无查询条件
+        pageNum: this.$route.query.pageNum
+          ? parseInt(this.$route.query.pageNum)
+          : 1,
+        pageSize: 50,
+        memberId: [],
+        status: "1",
+        pageSizeCode: "USER_PAGE_SIZE",
       },
       list: {
-        //暂无下拉列表查询条件
+        memberList: [],
       },
     };
   },
   created() {
-    this.getTableData();
+    let memberId = JSON.parse(localStorage.getItem("userInfo")).memberId;
+    this.getTableData(memberId);
+    this.getDropdownList(memberId);
+    this.getPersonalRole(memberId);
   },
-  watch: {},
-  activated() {
-    this.getTableData();
-  },
-
   methods: {
-    getTableData: function () {
+    getTableData(memberId) {
+      this.$api.arrangement.listArrangement({ memberId }).then((res) => {
+        this.tableData = res.data;
+        this.total = res.data.length;
+      });
+    },
+    handleEdit(row) {
+      // 启动编辑模式
+      row.isEditing = true;
+    },
+    handleEditSave(row) {
+      if (row.isEditing) {
+        // Save changes
+        console.log(
+          row.versionOrissueShow.type + ">>>" + row.versionOrissueShow.value
+        );
+        if (row.id) {
+          let data = {
+            id: row.id,
+            scheduleDate: row.scheduleDate.toString(),
+            versionId:
+              row.versionOrissueShow.type === "版本"
+                ? row.versionOrissueShow.value
+                : null,
+            issueId:
+              row.versionOrissueShow.type === "工单"
+                ? row.versionOrissueShow.value
+                : null,
+            workload: row.workload,
+          };
+          this.$api.arrangement.edit(data).then(() => {
+            this.getTableData(row.memberId);
+          });
+        } else {
+          this.$api.arrangement.add(row).then(() => {
+            this.getTableData();
+          });
+        }
+      }
+    },
+    handleDelete(row) {
       let that = this;
-      that.$api.department.getDepartmentList().then((res) => {
-        that.tableData = res.data;
-        that.total = res.data.length;
+      that.$confirm("是否确认删除？", "消息", {
+        callback(action) {
+          if (action === "confirm") {
+            let data = { id: row.id };
+            that.$api.arrangement.deleteArrangemen(data).then(() => {
+              that.getTableData(row.memberId);
+            });
+          }
+        },
       });
     },
-    //表格选中项改变时触发，data为当前最新的选中项信息
-    selectChange(data) {
-      this.selection = data.map((department) => department.id);
-    },
-    rowClick(row) {
-      this.tableData.forEach((item) => {
-        item.editable = false;
+
+    getPersonalRole(memberId) {
+      this.$api.member.getPersonalRole({ memberId }).then((res) => {
+        this.role = res.data;
       });
-      row.editable = true;
     },
-    setCellStyle({ row }) {
-      return row.editable ? { backgroundColor: "#f5f7fa" } : {};
+    handleDateChange(row) {
+      const dateString = row.scheduleDate
+        .toLocaleDateString("zh-Hans-CN")
+        .replace(/\//g, "-");
+      const [year, month, day] = dateString
+        .split("-")
+        .map((s) => s.padStart(2, "0"));
+      const formattedDate = `${year}-${month}-${day}`;
+      row.scheduleDate = formattedDate;
+    },
+    getDropdownList(memberId) {
+      this.$api.issue
+        .getIssueAndVersionDropdownList({ memberId })
+        .then((res) => {
+          this.options = res.data;
+        });
+      this.$api.member.getNameByParams().then((res) => {
+        this.list.memberList = res.data;
+      });
+    },
+    addNewRow() {
+      this.isNewRow = true;
+      this.newRow.scheduleDate = new Date().toISOString().substr(0, 10);
     },
   },
 };
 </script>
-
 <style scoped>
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+th,
+td {
+  border: 1px solid #ccc;
+  padding: 8px;
+  text-align: left;
+}
+th {
+  background-color: #f2f2f2;
+}
 </style>
